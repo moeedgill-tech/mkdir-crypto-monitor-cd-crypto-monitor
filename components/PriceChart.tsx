@@ -1,31 +1,70 @@
 "use client";
 
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import useSWR from "swr";
-import { fetcher } from "@/lib/fetcher"; // Assume this is your fetch utility
+import { useState, useEffect } from "react";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer 
+} from 'recharts';
 import Skeleton from "./Skeleton";
 
-export default function PriceChart({ coinId }: { coinId: string }) {
-  const { data, isLoading } = useSWR(
-    `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=7`,
-    fetcher
-  );
+interface PriceChartProps {
+  coinId: string;
+}
+
+interface MarketChartData {
+  prices: [number, number][];
+}
+
+export default function PriceChart({ coinId }: PriceChartProps) {
+  const [data, setChartData] = useState<MarketChartData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=7`
+        );
+        const result = await response.json();
+        setChartData(result);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    if (coinId) {
+      fetchData();
+    }
+  }, [coinId]);
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
 
-  const chartData = data.prices.map(([timestamp, price]: [number, number]) => ({
-    date: new Date(timestamp).toLocaleDateString("en-US", { weekday: 'short' }),
-    price: price,
-  }));
+  const chartData = data?.prices?.map((item: [number, number]) => ({
+    date: new Date(item[0]).toLocaleDateString(),
+    price: item[1],
+  })) || [];
 
   return (
-    <div className="h-64 w-full bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+    <div className="h-[400px] w-full"> 
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData}>
-          <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
-          <YAxis domain={['auto', 'auto']} stroke="#9ca3af" fontSize={12} />
-          <Tooltip contentStyle={{ borderRadius: '8px' }} />
-          <Line type="monotone" dataKey="price" stroke="#2563eb" strokeWidth={3} dot={false} />
+          <XAxis dataKey="date" hide />
+          <YAxis domain={['auto', 'auto']} />
+          <Tooltip />
+          <Line 
+            type="monotone" 
+            dataKey="price" 
+            stroke="#2563eb" 
+            strokeWidth={2} 
+            dot={false} 
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
